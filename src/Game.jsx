@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { DECKS } from './constants';
+import { DOORS } from './constants';
 
-const ELEMENTS = ['Sword', 'Shield', 'Magic', 'Arrow', 'Jump'];
-const DECK_SIZE = 40;
 const HAND_SIZE = 3;
 
-function getRandomElement() {
-  return ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
-}
-
-function generateDeck() {
-  // Evenly distribute elements in the deck
-  const deck = [];
-  for (let i = 0; i < DECK_SIZE; i++) {
-    deck.push({
-      id: i + 1,
-      element: ELEMENTS[i % ELEMENTS.length],
-    });
-  }
+function generateDeckFromColor(deckColor) {
+  if (!deckColor || !DECKS[deckColor]) return [];
+  const resources = DECKS[deckColor].resources;
+  // Flatten resources into an array of card objects
+  console.log('resources', resources);
+  let deck = [];
+  let id = 1;
+  Object.entries(resources).forEach(([type, countOrCombos]) => {
+    if (type === 'combo') {
+      countOrCombos.forEach((combo) => {
+        deck.push({ id: id++, element: 'Combo', combo });
+      });
+    } else {
+      for (let i = 0; i < countOrCombos; i++) {
+        deck.push({
+          id: id++,
+          element: type.charAt(0).toUpperCase() + type.slice(1),
+        });
+      }
+    }
+  });
   // Shuffle deck
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -25,25 +33,12 @@ function generateDeck() {
   return deck;
 }
 
-function generateMonster(round) {
-  // Each round, monster requires 1-3 random elements
-  const numRequired = Math.min(1 + Math.floor(round / 2), 3);
-  const requirements = [];
-  for (let i = 0; i < numRequired; i++) {
-    requirements.push(getRandomElement());
-  }
-  return {
-    name: `Monster ${round}`,
-    requirements,
-  };
-}
-
-export default function Game() {
-  const [deck] = useState(generateDeck());
+export default function Game({ selectedDeck }) {
+  const [deck] = useState(() => generateDeckFromColor(selectedDeck));
   const [hand, setHand] = useState(() => deck.slice(0, HAND_SIZE));
   const [deckIndex, setDeckIndex] = useState(HAND_SIZE);
   const [round, setRound] = useState(1);
-  const [monster, setMonster] = useState(() => generateMonster(1));
+  const [monster, setMonster] = useState(() => DOORS[0]);
   const [played, setPlayed] = useState([]);
   const [message, setMessage] = useState('');
   const [roundTransition, setRoundTransition] = useState(false);
@@ -68,24 +63,43 @@ export default function Game() {
 
   // Check if monster is defeated
   function canDefeatMonster() {
-    const requirements = [...monster.requirements];
-    const playedElements = played.map((c) => c.element);
+    // Flatten requirements
+    const requirements = [];
+    Object.entries(monster.health).forEach(([type, count]) => {
+      for (let i = 0; i < count; i++) {
+        requirements.push(type.charAt(0).toUpperCase() + type.slice(1));
+      }
+    });
+    // Expand played resources, treating combos as multiple resources
+    let playedResources = [];
+    played.forEach((card) => {
+      if (card.element === 'Combo' && card.combo) {
+        Object.entries(card.combo).forEach(([type, count]) => {
+          for (let i = 0; i < count; i++) {
+            playedResources.push(type.charAt(0).toUpperCase() + type.slice(1));
+          }
+        });
+      } else {
+        playedResources.push(card.element);
+      }
+    });
+    // Try to satisfy each requirement with played resources
     for (let req of requirements) {
-      const idx = playedElements.indexOf(req);
+      const idx = playedResources.indexOf(req);
       if (idx === -1) return false;
-      playedElements.splice(idx, 1);
+      playedResources.splice(idx, 1);
     }
     return true;
   }
 
   // Automatically advance to next round if defeated
   useEffect(() => {
-    if (played.length >= monster.requirements.length && canDefeatMonster()) {
+    if (played.length > 0 && canDefeatMonster()) {
       setMessage(`You defeated ${monster.name}!`);
       setRoundTransition(true);
       setTimeout(() => {
         setRound((prev) => prev + 1);
-        setMonster(generateMonster(round + 1));
+        setMonster(DOORS[round] || { name: 'No more monsters!', health: {} });
         setPlayed([]);
         setMessage('');
         setRoundTransition(false);
@@ -98,6 +112,22 @@ export default function Game() {
     if (!canDefeatMonster()) {
       setMessage("You haven't played the right cards to defeat the monster.");
     }
+  }
+
+  // If no deck (shouldn't happen), show error
+  if (!deck || deck.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-900 to-blue-800 p-4">
+        <h1 className="text-4xl font-extrabold text-white mb-4 drop-shadow-lg">
+          Final Raid: Game
+        </h1>
+        <div className="bg-white bg-opacity-90 rounded-xl shadow-lg p-6 w-full max-w-lg flex flex-col items-center mb-6">
+          <div className="text-red-600 font-bold text-lg">
+            No deck selected or deck is empty.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -122,14 +152,16 @@ export default function Game() {
             {monster.name}
           </div>
           <div className="flex gap-2 mt-2">
-            {monster.requirements.map((req, i) => (
-              <span
-                key={i}
-                className="px-3 py-1 bg-red-200 rounded-full text-red-800 font-bold text-sm"
-              >
-                {req}
-              </span>
-            ))}
+            {Object.entries(monster.health).map(([type, count]) =>
+              Array.from({ length: count }).map((_, j) => (
+                <span
+                  key={type + j}
+                  className="px-3 py-1 bg-red-200 rounded-full text-red-800 font-bold text-sm"
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </span>
+              ))
+            )}
           </div>
         </div>
         <div className="mb-4 w-full">
@@ -138,11 +170,25 @@ export default function Game() {
             {hand.map((card, idx) => (
               <button
                 key={card.id}
-                className="px-4 py-2 bg-blue-200 rounded-lg text-blue-900 font-bold shadow hover:bg-blue-300 disabled:opacity-50"
+                className="px-4 py-2 bg-blue-200 rounded-lg text-blue-900 font-bold shadow hover:bg-blue-300 disabled:opacity-50 flex items-center gap-2"
                 onClick={() => playCard(idx)}
                 disabled={roundTransition}
               >
-                {card.element}
+                {card.element === 'Combo' && card.combo ? (
+                  <>
+                    {Object.entries(card.combo).map(([k, v]) => (
+                      <span
+                        key={k}
+                        className={`inline-block px-2 py-1 rounded bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-xs mx-0.5`}
+                        style={{ minWidth: 36, textAlign: 'center' }}
+                      >
+                        {v} {k.charAt(0).toUpperCase() + k.slice(1)}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  card.element
+                )}
               </button>
             ))}
           </div>
@@ -156,6 +202,15 @@ export default function Game() {
                 className="px-3 py-1 bg-gray-300 rounded-lg text-gray-700 font-bold text-sm"
               >
                 {card.element}
+                {card.element === 'Combo' && card.combo ? (
+                  <span className="ml-1 text-xs text-gray-600">
+                    (
+                    {Object.entries(card.combo)
+                      .map(([k, v]) => `${v} ${k}`)
+                      .join(' + ')}
+                    )
+                  </span>
+                ) : null}
               </span>
             ))}
           </div>

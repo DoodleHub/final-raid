@@ -135,7 +135,7 @@ export const DECKS = {
   },
 };
 
-const DOORS = [
+export const DOORS = [
   {
     name: 'A TIMBER-WOLF',
     health: {

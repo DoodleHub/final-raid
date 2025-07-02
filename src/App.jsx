@@ -4,6 +4,12 @@ import Game from './Game';
 
 function App() {
   const [page, setPage] = useState('lobby');
+  const [selectedDeck, setSelectedDeck] = useState(null);
+
+  const handleStartGame = () => {
+    if (selectedDeck) setPage('game');
+  };
+
   return (
     <div>
       <div className="fixed top-4 right-4 z-50 flex gap-2">
@@ -19,9 +25,13 @@ function App() {
         </button>
       </div>
       {page === 'lobby' ? (
-        <Lobby onStartGame={() => setPage('game')} />
+        <Lobby
+          onStartGame={handleStartGame}
+          selectedDeck={selectedDeck}
+          onDeckChange={setSelectedDeck}
+        />
       ) : (
-        <Game />
+        <Game selectedDeck={selectedDeck} />
       )}
     </div>
   );
