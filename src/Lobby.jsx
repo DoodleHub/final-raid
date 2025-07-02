@@ -8,7 +8,7 @@ const playerSlots = [
   { id: 5, name: 'Waiting...' },
 ];
 
-export default function Lobby() {
+export default function Lobby({ onStartGame }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-800">
       <h1 className="text-5xl font-extrabold text-white mb-8 drop-shadow-lg">
@@ -28,8 +28,8 @@ export default function Lobby() {
           ))}
         </ul>
         <button
-          className="w-full py-3 rounded-lg bg-gray-400 text-white font-bold text-lg cursor-not-allowed opacity-60"
-          disabled
+          className="w-full py-3 rounded-lg bg-green-600 text-white font-bold text-lg hover:bg-green-700 transition"
+          onClick={onStartGame}
         >
           Start Game
         </button>
